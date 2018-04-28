@@ -1,18 +1,4 @@
 
-locals {
-  master_lb_ip      = "${var.master_oci_lb_enabled == "true" ? element(concat(flatten(module.k8smaster-public-lb.ip_addresses), list("")), 0) : "127.0.0.1"}"
-  master_lb_address = "${format("https://%s:%s", local.master_lb_ip, var.master_oci_lb_enabled == "true" ? "443" : "6443")}"
-
-  reverse_proxy_clount_init = "${var.master_oci_lb_enabled == "true" ? "" : module.reverse-proxy.clount_init}"
-  reverse_proxy_setup       = "${var.master_oci_lb_enabled == "true" ? "" : module.reverse-proxy.setup}"
-
-  etcd_endpoints = "${var.etcd_lb_enabled == "true" ?
-    join(",",formatlist("http://%s:2379", module.etcd-lb.ip_addresses)) :
-    join(",",formatlist("http://%s:2379", compact(concat(
-      module.instances-etcd-ad1.private_ips, 
-      module.instances-etcd-ad2.private_ips, 
-      module.instances-etcd-ad3.private_ips)))) }"
-}
 
 ### CA and Cluster Certificates
 
@@ -31,11 +17,26 @@ module "k8s-tls" {
 ### Virtual Cloud Network
 
 module "vcn" {
-  source                                  = "./network/vcn"
-  compartment_ocid                        = "${var.compartment_ocid}"
-  label_prefix                            = "${var.label_prefix}"
-  tenancy_ocid                            = "${var.tenancy_ocid}"
-  vcn_dns_name                            = "${var.vcn_dns_name}"
+  +  create_vcn                              = "${var.vcn_id == "" ? "true" : "false"}"
+   source                                  = "./network/vcn"
+   compartment_ocid                        = "${var.compartment_ocid}"
+   label_prefix                            = "${var.label_prefix}"
+   vcn_dns_name                            = "${var.vcn_dns_name}"
+   vcn_cidr                                = "${var.vcn_cidr}"
+ }
+
+
+module "subnets" {
+   source                                  = "./network/subnets"
+   compartment_ocid                        = "${var.compartment_ocid}"
+   label_prefix                            = "${var.label_prefix}"
+   tenancy_ocid                            = "${var.tenancy_ocid}"
+ 
+   # Use a existing VCN and public route table and dhcp options
+   vcn_id                                  = "${var.vcn_id == "" ? join(" ",module.vcn.vcn_id) : var.vcn_id}"
+   dhcp_options_id                         = "${var.vcn_id == "" ? join(" ",module.vcn.vcn_dhcp_options_id) : var.vcn_dhcp_options_id}"
+   public_routetable_id                    = "${var.vcn_id == "" ? join(" ",module.vcn.public_routetable_id) : var.public_routetable_id}"
+   vcn_dns_name                            = "${var.vcn_dns_name}"
   additional_etcd_security_lists_ids      = "${var.additional_etcd_security_lists_ids}"
   additional_k8smaster_security_lists_ids = "${var.additional_k8s_master_security_lists_ids}"
   additional_k8sworker_security_lists_ids = "${var.additional_k8s_worker_security_lists_ids}"
@@ -78,14 +79,15 @@ module "oci-cloud-controller" {
   // var.cloud_controller_user_private_key_path has been provided but has an empty password
   cloud_controller_user_private_key_password = "${var.cloud_controller_user_private_key_path == "" ? var.private_key_password : var.cloud_controller_user_private_key_password}"
 
-  subnet1 = "${element(module.vcn.ccmlb_subnet_ad1_id,0)}"
-  subnet2 = "${element(module.vcn.ccmlb_subnet_ad2_id,0)}"
+  subnet1 = "${element(module.subnets.ccmlb_subnet_ad1_id,0)}"
+  subnet2 = "${element(module.subnets.ccmlb_subnet_ad2_id,0)}"
+ 
 }
 
 module "oci-flexvolume-driver" {
   source  = "./kubernetes/oci-flexvolume-driver"
   tenancy = "${var.tenancy_ocid}"
-  vcn     = "${module.vcn.id}"
+  vcn     = "${module.subnets.id}"
 
   flexvolume_driver_user_ocid             = "${var.flexvolume_driver_user_ocid == "" ? var.user_ocid : var.flexvolume_driver_user_ocid}"
   flexvolume_driver_user_fingerprint      = "${var.flexvolume_driver_user_fingerprint == "" ? var.fingerprint : var.flexvolume_driver_user_fingerprint}"
@@ -126,7 +128,7 @@ module "instances-etcd-ad1" {
   shape                       = "${var.etcdShape}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
   network_cidrs               = "${var.network_cidrs}"
-  subnet_id                   = "${module.vcn.etcd_subnet_ad1_id}"
+  subnet_id                   = "${module.subnets.etcd_subnet_ad1_id}"
   subnet_name                 = "etcdSubnetAD1"
   tenancy_ocid                = "${var.compartment_ocid}"
   etcd_docker_max_log_size    = "${var.etcd_docker_max_log_size}"
@@ -151,7 +153,7 @@ module "instances-etcd-ad2" {
   shape                       = "${var.etcdShape}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
   network_cidrs               = "${var.network_cidrs}"
-  subnet_id                   = "${module.vcn.etcd_subnet_ad2_id}"
+  subnet_id                   = "${module.subnets.etcd_subnet_ad2_id}"
   subnet_name                 = "etcdSubnetAD2"
   tenancy_ocid                = "${var.compartment_ocid}"
   etcd_docker_max_log_size    = "${var.etcd_docker_max_log_size}"
@@ -178,7 +180,7 @@ module "instances-etcd-ad3" {
   shape                       = "${var.etcdShape}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
   network_cidrs               = "${var.network_cidrs}"
-  subnet_id                   = "${module.vcn.etcd_subnet_ad3_id}"
+  subnet_id                   = "${module.subnets.etcd_subnet_ad3_id}"
   subnet_name                 = "etcdSubnetAD3"
   tenancy_ocid                = "${var.compartment_ocid}"
   etcd_docker_max_log_size    = "${var.etcd_docker_max_log_size}"
@@ -218,7 +220,7 @@ module "instances-k8smaster-ad1" {
   ssh_private_key             = "${module.k8s-tls.ssh_private_key}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
   network_cidrs               = "${var.network_cidrs}"
-  subnet_id                   = "${module.vcn.k8smaster_subnet_ad1_id}"
+  subnet_id                   = "${module.subnets.k8smaster_subnet_ad1_id}"
   subnet_name                 = "masterSubnetAD1"
   tenancy_ocid                = "${var.compartment_ocid}"
   cloud_controller_version    = "${var.cloud_controller_version}"
@@ -263,7 +265,7 @@ module "instances-k8smaster-ad2" {
   ssh_private_key             = "${module.k8s-tls.ssh_private_key}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
   network_cidrs               = "${var.network_cidrs}"
-  subnet_id                   = "${module.vcn.k8smaster_subnet_ad2_id}"
+  subnet_id                   = "${module.subnets.k8smaster_subnet_ad2_id}"
   subnet_name                 = "masterSubnetAD2"
   tenancy_ocid                = "${var.compartment_ocid}"
   cloud_controller_version    = "${var.cloud_controller_version}"
@@ -308,7 +310,7 @@ module "instances-k8smaster-ad3" {
   ssh_private_key             = "${module.k8s-tls.ssh_private_key}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
   network_cidrs               = "${var.network_cidrs}"
-  subnet_id                   = "${module.vcn.k8smaster_subnet_ad3_id}"
+  subnet_id                   = "${module.subnets.k8smaster_subnet_ad3_id}"
   subnet_name                 = "masterSubnetAD3"
   tenancy_ocid                = "${var.compartment_ocid}"
   cloud_controller_version    = "${var.cloud_controller_version}"
@@ -348,7 +350,7 @@ module "instances-k8sworker-ad1" {
   shape                       = "${var.k8sWorkerShape}"
   ssh_private_key             = "${module.k8s-tls.ssh_private_key}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
-  subnet_id                   = "${module.vcn.k8worker_subnet_ad1_id}"
+  subnet_id                   = "${module.subnets.k8worker_subnet_ad1_id}"
   tenancy_ocid                = "${var.compartment_ocid}"
   flexvolume_driver_version   = "${var.flexvolume_driver_version}"
   worker_iscsi_volume_create  = "${var.worker_iscsi_volume_create}"
@@ -382,7 +384,7 @@ module "instances-k8sworker-ad2" {
   shape                       = "${var.k8sWorkerShape}"
   ssh_private_key             = "${module.k8s-tls.ssh_private_key}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
-  subnet_id                   = "${module.vcn.k8worker_subnet_ad2_id}"
+  subnet_id                   = "${module.subnets.k8worker_subnet_ad2_id}"
   tenancy_ocid                = "${var.compartment_ocid}"
   flexvolume_driver_version   = "${var.flexvolume_driver_version}"
   worker_iscsi_volume_create  = "${var.worker_iscsi_volume_create}"
@@ -416,7 +418,7 @@ module "instances-k8sworker-ad3" {
   shape                       = "${var.k8sWorkerShape}"
   ssh_private_key             = "${module.k8s-tls.ssh_private_key}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
-  subnet_id                   = "${module.vcn.k8worker_subnet_ad3_id}"
+  subnet_id                   = "${module.subnets.k8worker_subnet_ad3_id}"
   tenancy_ocid                = "${var.compartment_ocid}"
   flexvolume_driver_version   = "${var.flexvolume_driver_version}"
   worker_iscsi_volume_create  = "${var.worker_iscsi_volume_create}"
@@ -434,8 +436,8 @@ module "etcd-lb" {
   is_private       = "${var.etcd_lb_access == "private" ? "true": "false"}"
 
   # Handle case where var.etcd_lb_access=public, but var.control_plane_subnet_access=private
-  etcd_subnet_0_id     = "${var.etcd_lb_access == "private" ? module.vcn.etcd_subnet_ad1_id: coalesce(join(" ", module.vcn.public_subnet_ad1_id), join(" ", list(module.vcn.etcd_subnet_ad1_id)))}"
-  etcd_subnet_1_id     = "${var.etcd_lb_access == "private" ? "": coalesce(join(" ", module.vcn.public_subnet_ad2_id), join(" ", list(module.vcn.etcd_subnet_ad2_id)))}"
+  etcd_subnet_0_id     = "${var.etcd_lb_access == "private" ? module.subnets.etcd_subnet_ad1_id: coalesce(join(" ", module.subnets.public_subnet_ad1_id), join(" ", list(module.subnets.etcd_subnet_ad1_id)))}"
+  etcd_subnet_1_id     = "${var.etcd_lb_access == "private" ? "": coalesce(join(" ", module.subnets.public_subnet_ad2_id), join(" ", list(module.subnets.etcd_subnet_ad2_id)))}"
   etcd_ad1_private_ips = "${module.instances-etcd-ad1.private_ips}"
   etcd_ad2_private_ips = "${module.instances-etcd-ad2.private_ips}"
   etcd_ad3_private_ips = "${module.instances-etcd-ad3.private_ips}"
@@ -453,8 +455,8 @@ module "k8smaster-public-lb" {
   is_private            = "${var.k8s_master_lb_access == "private" ? "true": "false"}"
 
   # Handle case where var.k8s_master_lb_access=public, but var.control_plane_subnet_access=private
-  k8smaster_subnet_0_id     = "${var.k8s_master_lb_access == "private" ? module.vcn.k8smaster_subnet_ad1_id: coalesce(join(" ", module.vcn.public_subnet_ad1_id), join(" ", list(module.vcn.k8smaster_subnet_ad1_id)))}"
-  k8smaster_subnet_1_id     = "${var.k8s_master_lb_access == "private" ? "": coalesce(join(" ", module.vcn.public_subnet_ad2_id), join(" ", list(module.vcn.k8smaster_subnet_ad2_id)))}"
+  k8smaster_subnet_0_id     = "${var.k8s_master_lb_access == "private" ? module.subnets.k8smaster_subnet_ad1_id: coalesce(join(" ", module.subnets.public_subnet_ad1_id), join(" ", list(module.subnets.k8smaster_subnet_ad1_id)))}"
+  k8smaster_subnet_1_id     = "${var.k8s_master_lb_access == "private" ? "": coalesce(join(" ", module.subnets.public_subnet_ad2_id), join(" ", list(module.subnets.k8smaster_subnet_ad2_id)))}"
   k8smaster_ad1_private_ips = "${module.instances-k8smaster-ad1.private_ips}"
   k8smaster_ad2_private_ips = "${module.instances-k8smaster-ad2.private_ips}"
   k8smaster_ad3_private_ips = "${module.instances-k8smaster-ad3.private_ips}"
@@ -476,3 +478,20 @@ module "kubeconfig" {
   api_server_cert_pem        = "${module.k8s-tls.api_server_cert_pem}"
   k8s_master                 = "${var.master_oci_lb_enabled == "true" ? local.master_lb_address : format("https://%s:%s", element(coalescelist(module.instances-k8smaster-ad1.public_ips, module.instances-k8smaster-ad2.public_ips, module.instances-k8smaster-ad3.public_ips), 0), "443")}"
 }
+
+
+
+locals {
+   master_lb_ip      = "${var.master_oci_lb_enabled == "true" ? element(concat(flatten(module.k8smaster-public-lb.ip_addresses), list("")), 0) : "127.0.0.1"}"
+   master_lb_address = "${format("https://%s:%s", local.master_lb_ip, var.master_oci_lb_enabled == "true" ? "443" : "6443")}"
+ 
+   reverse_proxy_clount_init = "${var.master_oci_lb_enabled == "true" ? "" : module.reverse-proxy.clount_init}"
+   reverse_proxy_setup       = "${var.master_oci_lb_enabled == "true" ? "" : module.reverse-proxy.setup}"
+ 
+   etcd_endpoints = "${var.etcd_lb_enabled == "true" ?
+    join(",",formatlist("http://%s:2379", module.etcd-lb.ip_addresses)) :
+    join(",",formatlist("http://%s:2379", compact(concat(
+      module.instances-etcd-ad1.private_ips, 
+      module.instances-etcd-ad2.private_ips, 
+      module.instances-etcd-ad3.private_ips)))) }"
+ }
