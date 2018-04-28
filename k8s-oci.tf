@@ -17,7 +17,7 @@ module "k8s-tls" {
 ### Virtual Cloud Network
 
 module "vcn" {
-  +  create_vcn                              = "${var.vcn_id == "" ? "true" : "false"}"
+   create_vcn                              = "${var.vcn_id == "" ? "true" : "false"}"
    source                                  = "./network/vcn"
    compartment_ocid                        = "${var.compartment_ocid}"
    label_prefix                            = "${var.label_prefix}"
