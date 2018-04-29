@@ -9,9 +9,7 @@ variable "public_routetable_id" {}
 
 variable "dhcp_options_id" {}
 variable "vcn_dhcp_options_id" {}
-variable "vcn_dns_name" {
-  default = "k8sbmcs"
-}
+
 
 variable "create_vcn" {}
 
