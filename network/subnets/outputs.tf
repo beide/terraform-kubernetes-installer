@@ -103,5 +103,3 @@ output "nat_instance_ad3_public_ips" {
 output "control_plane_subnet_access" {
   value = "${var.control_plane_subnet_access}"
 }
-
-
