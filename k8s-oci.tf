@@ -1,5 +1,3 @@
-
-
 ### CA and Cluster Certificates
 
 module "k8s-tls" {
@@ -17,26 +15,26 @@ module "k8s-tls" {
 ### Virtual Cloud Network
 
 module "vcn" {
-   create_vcn                              = "${var.vcn_id == "" ? "true" : "false"}"
-   source                                  = "./network/vcn"
-   compartment_ocid                        = "${var.compartment_ocid}"
-   label_prefix                            = "${var.label_prefix}"
-   vcn_dns_name                            = "${var.vcn_dns_name}"
-   vcn_cidr                                = "${var.vcn_cidr}"
- }
+  create_vcn                              = "${var.vcn_id == "" ? "true" : "false"}"
+  source                                  = "./network/vcn"
+  compartment_ocid                        = "${var.compartment_ocid}"
+  label_prefix                            = "${var.label_prefix}"
+  vcn_dns_name                            = "${var.vcn_dns_name}"
+  vcn_cidr                                = "${var.vcn_cidr}"
+}
 
 
 module "subnets" {
-   source                                  = "./network/subnets"
-   compartment_ocid                        = "${var.compartment_ocid}"
-   label_prefix                            = "${var.label_prefix}"
-   tenancy_ocid                            = "${var.tenancy_ocid}"
- 
-   # Use a existing VCN and public route table and dhcp options
-   vcn_id                                  = "${var.vcn_id == "" ? join(" ",module.vcn.vcn_id) : var.vcn_id}"
-   dhcp_options_id                         = "${var.vcn_id == "" ? join(" ",module.vcn.vcn_dhcp_options_id) : var.vcn_dhcp_options_id}"
-   public_routetable_id                    = "${var.vcn_id == "" ? join(" ",module.vcn.public_routetable_id) : var.public_routetable_id}"
-   vcn_dns_name                            = "${var.vcn_dns_name}"
+  source                                  = "./network/subnets"
+  compartment_ocid                        = "${var.compartment_ocid}"
+  label_prefix                            = "${var.label_prefix}"
+  tenancy_ocid                            = "${var.tenancy_ocid}"
+
+  # Use a existing VCN and public route table and dhcp options
+  vcn_id                                  = "${var.vcn_id == "" ? join(" ",module.vcn.vcn_id) : var.vcn_id}"
+  dhcp_options_id                         = "${var.vcn_id == "" ? join(" ",module.vcn.vcn_dhcp_options_id) : var.vcn_dhcp_options_id}"
+  public_routetable_id                    = "${var.vcn_id == "" ? join(" ",module.vcn.public_routetable_id) : var.public_routetable_id}"
+  vcn_dns_name                            = "${var.vcn_dns_name}"
   additional_etcd_security_lists_ids      = "${var.additional_etcd_security_lists_ids}"
   additional_k8smaster_security_lists_ids = "${var.additional_k8s_master_security_lists_ids}"
   additional_k8sworker_security_lists_ids = "${var.additional_k8s_worker_security_lists_ids}"
@@ -81,7 +79,6 @@ module "oci-cloud-controller" {
 
   subnet1 = "${element(module.subnets.ccmlb_subnet_ad1_id,0)}"
   subnet2 = "${element(module.subnets.ccmlb_subnet_ad2_id,0)}"
- 
 }
 
 module "oci-flexvolume-driver" {
@@ -122,6 +119,9 @@ module "instances-etcd-ad1" {
   display_name_prefix         = "etcd-ad1"
   domain_name                 = "${var.domain_name}"
   etcd_discovery_url          = "${template_file.etcd_discovery_url.id}"
+  flannel_backend             = "${var.flannel_backend}"
+  flannel_network_cidr        = "10.99.0.0/16"
+  flannel_network_subnetlen   = 24
   hostname_label_prefix       = "etcd-ad1"
   oracle_linux_image_name     = "${var.etcd_ol_image_name}"
   label_prefix                = "${var.label_prefix}"
@@ -147,6 +147,9 @@ module "instances-etcd-ad2" {
   display_name_prefix         = "etcd-ad2"
   domain_name                 = "${var.domain_name}"
   etcd_discovery_url          = "${template_file.etcd_discovery_url.id}"
+  flannel_backend             = "${var.flannel_backend}"
+  flannel_network_cidr        = "10.99.0.0/16"
+  flannel_network_subnetlen   = 24
   hostname_label_prefix       = "etcd-ad2"
   oracle_linux_image_name     = "${var.etcd_ol_image_name}"
   label_prefix                = "${var.label_prefix}"
@@ -174,6 +177,9 @@ module "instances-etcd-ad3" {
   domain_name                 = "${var.domain_name}"
   etcd_discovery_url          = "${template_file.etcd_discovery_url.id}"
   etcd_ver                    = "${var.etcd_ver}"
+  flannel_backend             = "${var.flannel_backend}"
+  flannel_network_cidr        = "10.99.0.0/16"
+  flannel_network_subnetlen   = 24
   hostname_label_prefix       = "etcd-ad3"
   oracle_linux_image_name     = "${var.etcd_ol_image_name}"
   label_prefix                = "${var.label_prefix}"
@@ -215,7 +221,6 @@ module "instances-k8smaster-ad1" {
   k8s_ver                     = "${var.k8s_ver}"
   label_prefix                = "${var.label_prefix}"
   root_ca_pem                 = "${module.k8s-tls.root_ca_pem}"
-  root_ca_key                 = "${module.k8s-tls.root_ca_key}"
   shape                       = "${var.k8sMasterShape}"
   ssh_private_key             = "${module.k8s-tls.ssh_private_key}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
@@ -231,8 +236,6 @@ module "instances-k8smaster-ad1" {
   volume_provisioner_secret   = "${module.oci-volume-provisioner.volume-provisioner-yaml}"
   assign_private_ip           = "${var.master_maintain_private_ip}"
   etcd_endpoints              = "${local.etcd_endpoints}"
-  flannel_backend             = "${var.flannel_backend}"
-  flannel_network_cidr        = "${var.flannel_network_cidr}"
 }
 
 module "instances-k8smaster-ad2" {
@@ -260,7 +263,6 @@ module "instances-k8smaster-ad2" {
   k8s_ver                     = "${var.k8s_ver}"
   label_prefix                = "${var.label_prefix}"
   root_ca_pem                 = "${module.k8s-tls.root_ca_pem}"
-  root_ca_key                 = "${module.k8s-tls.root_ca_key}"
   shape                       = "${var.k8sMasterShape}"
   ssh_private_key             = "${module.k8s-tls.ssh_private_key}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
@@ -276,8 +278,6 @@ module "instances-k8smaster-ad2" {
   volume_provisioner_secret   = "${module.oci-volume-provisioner.volume-provisioner-yaml}"
   assign_private_ip           = "${var.master_maintain_private_ip}"
   etcd_endpoints              = "${local.etcd_endpoints}"
-  flannel_backend             = "${var.flannel_backend}"
-  flannel_network_cidr        = "${var.flannel_network_cidr}"
 }
 
 module "instances-k8smaster-ad3" {
@@ -305,7 +305,6 @@ module "instances-k8smaster-ad3" {
   k8s_ver                     = "${var.k8s_ver}"
   label_prefix                = "${var.label_prefix}"
   root_ca_pem                 = "${module.k8s-tls.root_ca_pem}"
-  root_ca_key                 = "${module.k8s-tls.root_ca_key}"
   shape                       = "${var.k8sMasterShape}"
   ssh_private_key             = "${module.k8s-tls.ssh_private_key}"
   ssh_public_key_openssh      = "${module.k8s-tls.ssh_public_key_openssh}"
@@ -321,8 +320,6 @@ module "instances-k8smaster-ad3" {
   volume_provisioner_secret   = "${module.oci-volume-provisioner.volume-provisioner-yaml}"
   assign_private_ip           = "${var.master_maintain_private_ip}"
   etcd_endpoints              = "${local.etcd_endpoints}"
-  flannel_backend             = "${var.flannel_backend}"
-  flannel_network_cidr        = "${var.flannel_network_cidr}"
 }
 
 module "instances-k8sworker-ad1" {
@@ -337,6 +334,9 @@ module "instances-k8sworker-ad1" {
   worker_docker_max_log_size  = "${var.worker_docker_max_log_size}"
   worker_docker_max_log_files = "${var.worker_docker_max_log_files}"
   domain_name                 = "${var.domain_name}"
+  etcd_discovery_url          = "${template_file.etcd_discovery_url.id}"
+  etcd_ver                    = "${var.etcd_ver}"
+  flannel_ver                 = "${var.flannel_ver}"
   hostname_label_prefix       = "k8s-worker-ad1"
   oracle_linux_image_name     = "${var.worker_ol_image_name}"
   k8s_ver                     = "${var.k8s_ver}"
@@ -353,10 +353,10 @@ module "instances-k8sworker-ad1" {
   subnet_id                   = "${module.subnets.k8worker_subnet_ad1_id}"
   tenancy_ocid                = "${var.compartment_ocid}"
   flexvolume_driver_version   = "${var.flexvolume_driver_version}"
+  etcd_endpoints              = "${local.etcd_endpoints}"
   worker_iscsi_volume_create  = "${var.worker_iscsi_volume_create}"
   worker_iscsi_volume_size    = "${var.worker_iscsi_volume_size}"
   worker_iscsi_volume_mount   = "${var.worker_iscsi_volume_mount}"
-  flannel_network_cidr        = "${var.flannel_network_cidr}"
 }
 
 module "instances-k8sworker-ad2" {
@@ -371,6 +371,9 @@ module "instances-k8sworker-ad2" {
   worker_docker_max_log_size  = "${var.worker_docker_max_log_size}"
   worker_docker_max_log_files = "${var.worker_docker_max_log_files}"
   domain_name                 = "${var.domain_name}"
+  etcd_discovery_url          = "${template_file.etcd_discovery_url.id}"
+  etcd_ver                    = "${var.etcd_ver}"
+  flannel_ver                 = "${var.flannel_ver}"
   hostname_label_prefix       = "k8s-worker-ad2"
   oracle_linux_image_name     = "${var.worker_ol_image_name}"
   k8s_ver                     = "${var.k8s_ver}"
@@ -387,10 +390,10 @@ module "instances-k8sworker-ad2" {
   subnet_id                   = "${module.subnets.k8worker_subnet_ad2_id}"
   tenancy_ocid                = "${var.compartment_ocid}"
   flexvolume_driver_version   = "${var.flexvolume_driver_version}"
+  etcd_endpoints              = "${local.etcd_endpoints}"
   worker_iscsi_volume_create  = "${var.worker_iscsi_volume_create}"
   worker_iscsi_volume_size    = "${var.worker_iscsi_volume_size}"
   worker_iscsi_volume_mount   = "${var.worker_iscsi_volume_mount}"
-  flannel_network_cidr        = "${var.flannel_network_cidr}"
 }
 
 module "instances-k8sworker-ad3" {
@@ -405,6 +408,9 @@ module "instances-k8sworker-ad3" {
   worker_docker_max_log_size  = "${var.worker_docker_max_log_size}"
   worker_docker_max_log_files = "${var.worker_docker_max_log_files}"
   domain_name                 = "${var.domain_name}"
+  etcd_discovery_url          = "${template_file.etcd_discovery_url.id}"
+  etcd_ver                    = "${var.etcd_ver}"
+  flannel_ver                 = "${var.flannel_ver}"
   hostname_label_prefix       = "k8s-worker-ad3"
   oracle_linux_image_name     = "${var.worker_ol_image_name}"
   k8s_ver                     = "${var.k8s_ver}"
@@ -421,10 +427,10 @@ module "instances-k8sworker-ad3" {
   subnet_id                   = "${module.subnets.k8worker_subnet_ad3_id}"
   tenancy_ocid                = "${var.compartment_ocid}"
   flexvolume_driver_version   = "${var.flexvolume_driver_version}"
+  etcd_endpoints              = "${local.etcd_endpoints}"
   worker_iscsi_volume_create  = "${var.worker_iscsi_volume_create}"
   worker_iscsi_volume_size    = "${var.worker_iscsi_volume_size}"
   worker_iscsi_volume_mount   = "${var.worker_iscsi_volume_mount}"
-  flannel_network_cidr        = "${var.flannel_network_cidr}"
 }
 
 ### Load Balancers
@@ -482,16 +488,16 @@ module "kubeconfig" {
 
 
 locals {
-   master_lb_ip      = "${var.master_oci_lb_enabled == "true" ? element(concat(flatten(module.k8smaster-public-lb.ip_addresses), list("")), 0) : "127.0.0.1"}"
-   master_lb_address = "${format("https://%s:%s", local.master_lb_ip, var.master_oci_lb_enabled == "true" ? "443" : "6443")}"
- 
-   reverse_proxy_clount_init = "${var.master_oci_lb_enabled == "true" ? "" : module.reverse-proxy.clount_init}"
-   reverse_proxy_setup       = "${var.master_oci_lb_enabled == "true" ? "" : module.reverse-proxy.setup}"
- 
-   etcd_endpoints = "${var.etcd_lb_enabled == "true" ?
+  master_lb_ip      = "${var.master_oci_lb_enabled == "true" ? element(concat(flatten(module.k8smaster-public-lb.ip_addresses), list("")), 0) : "127.0.0.1"}"
+  master_lb_address = "${format("https://%s:%s", local.master_lb_ip, var.master_oci_lb_enabled == "true" ? "443" : "6443")}"
+
+  reverse_proxy_clount_init = "${var.master_oci_lb_enabled == "true" ? "" : module.reverse-proxy.clount_init}"
+  reverse_proxy_setup       = "${var.master_oci_lb_enabled == "true" ? "" : module.reverse-proxy.setup}"
+
+  etcd_endpoints = "${var.etcd_lb_enabled == "true" ?
     join(",",formatlist("http://%s:2379", module.etcd-lb.ip_addresses)) :
     join(",",formatlist("http://%s:2379", compact(concat(
       module.instances-etcd-ad1.private_ips, 
       module.instances-etcd-ad2.private_ips, 
       module.instances-etcd-ad3.private_ips)))) }"
- }
+}
