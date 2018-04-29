@@ -9,6 +9,15 @@ variable "public_routetable_id" {}
 
 variable "dhcp_options_id" {}
 variable "vcn_dhcp_options_id" {}
+variable "vcn_dns_name" {
+  default = "k8sbmcs"
+}
+
+variable "create_vcn" {}
+
+variable "vcn_cidr" {
+  default = "10.0.0.0/16"
+}
 variable "network_cidrs" {
   type = "map"
 
