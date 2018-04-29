@@ -16,8 +16,8 @@ variable "network_cidrs" {
     natSubnetAD3      = "10.0.15.0/24"
     etcdSubnetAD1     = "10.0.20.0/24"
     etcdSubnetAD2     = "10.0.21.0/24"
-   etcdSubnetAD3     = "10.0.22.0/24"
-   masterSubnetAD1   = "10.0.30.0/24"
+    etcdSubnetAD3     = "10.0.22.0/24"
+    masterSubnetAD1   = "10.0.30.0/24"
     masterSubnetAD2   = "10.0.31.0/24"
     masterSubnetAD3   = "10.0.32.0/24"
     workerSubnetAD1   = "10.0.40.0/24"
@@ -26,7 +26,7 @@ variable "network_cidrs" {
     k8sCCMLBSubnetAD1 = "10.0.50.0/24"
     k8sCCMLBSubnetAD2 = "10.0.51.0/24"
     k8sCCMLBSubnetAD3 = "10.0.52.0/24"
- }
+  }
 }
 
 variable "network_subnet_dns" {
@@ -37,10 +37,10 @@ variable "network_subnet_dns" {
     etcdSubnetAD2     = "etcdsubnet2"
     etcdSubnetAD3     = "etcdsubnet3"
     masterSubnetAD1   = "k8smasterad1"
-   masterSubnetAD2   = "k8smasterad2"
+    masterSubnetAD2   = "k8smasterad2"
     masterSubnetAD3   = "k8smasterad3"
     workerSubnetAD1   = "k8sworkerad1"
-   workerSubnetAD2   = "k8sworkerad2"
+    workerSubnetAD2   = "k8sworkerad2"
     workerSubnetAD3   = "k8sworkerad3"
     k8sCCMLBSubnetAD1 = "k8sccmlbad1"
     k8sCCMLBSubnetAD2 = "k8sccmlbad2"
@@ -62,7 +62,7 @@ variable "additional_etcd_security_lists_ids" {
 
 variable "additional_k8smaster_security_lists_ids" {
   type    = "list"
-   default = []
+  default = []
 }
 
 variable "additional_k8sworker_security_lists_ids" {
@@ -119,11 +119,11 @@ variable "master_https_ingress" {
 }
 
 variable "worker_ssh_ingress" {
- default = "10.0.0.0/16"
+  default = "10.0.0.0/16"
 }
 
 variable "worker_nodeport_ingress" {
- default = "10.0.0.0/16"
+  default = "10.0.0.0/16"
 }
 
 variable "master_nodeport_ingress" {
@@ -134,7 +134,7 @@ variable "master_nodeport_ingress" {
 
 variable "public_subnet_ssh_ingress" {
   default = "0.0.0.0/0"
-  }
+}
 
 variable "public_subnet_http_ingress" {
   default = "0.0.0.0/0"
