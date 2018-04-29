@@ -1,5 +1,4 @@
 resource "oci_core_virtual_network" "CompleteVCN" {
-  cidr_block     = "${lookup(var.network_cidrs, "VCN-CIDR")}"
   count          = "${var.create_vcn == "true" ? 1 : 0}"
   cidr_block     = "${var.vcn_cidr}"
   compartment_id = "${var.compartment_ocid}"
@@ -27,4 +26,3 @@ resource "oci_core_route_table" "PublicRouteTable" {
     network_entity_id = "${oci_core_internet_gateway.PublicIG.id}"
   }
 }
-
