@@ -3,6 +3,11 @@ variable "tenancy_ocid" {}
 
 variable "compartment_ocid" {}
 
+variable "vcn_id" {}
+
+variable "public_routetable_id" {}
+
+variable "dhcp_options_id" {}
 variable "network_cidrs" {
   type = "map"
 
