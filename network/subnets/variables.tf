@@ -2,7 +2,7 @@ variable "vcn_id" {}
 
 variable "public_routetable_id" {}
 
-variable "dhcp_options_id" {}
+variable "vcn_dhcp_options_id" {}
 
 variable "network_cidrs" {
   type = "map"
