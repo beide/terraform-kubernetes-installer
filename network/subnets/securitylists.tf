@@ -313,7 +313,7 @@ resource "oci_core_security_list" "NatSecurityList" {
   count          = "${(var.control_plane_subnet_access == "private") && (var.dedicated_nat_subnets == "true") ? "1" : "0"}"
   compartment_id = "${var.compartment_ocid}"
   display_name   = "nat_security_list"
- vcn_id         = "${var.vcn_id}"
+  vcn_id         = "${var.vcn_id}"
 
   egress_security_rules = [{
     protocol    = "all"
